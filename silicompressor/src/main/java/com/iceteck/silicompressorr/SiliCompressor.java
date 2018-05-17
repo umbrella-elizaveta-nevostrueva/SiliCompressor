@@ -26,6 +26,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
+import io.reactivex.SingleEmitter;
+
 /**
  * @author Toure, Akah L
  * @version 1.1.1
@@ -342,18 +344,22 @@ public class SiliCompressor {
      * Perform background video compression. Make sure the videofileUri and destinationUri are valid
      * resources because this method does not account for missing directories hence your converted file
      * could be in an unknown location
-     * @param videoFilePath source path for the video file
+     *
+     * @param videoFilePath  source path for the video file
      * @param destinationDir destination directory where converted file should be saved
-     * @param outWidth the target width of the compressed video or 0 to use default width
-     * @param outHeight the target height of the compressed video or 0 to use default height
-     * @param bitrate the target bitrate of the compressed video or 0 to user default bitrate
+     * @param outWidth       the target width of the compressed video or 0 to use default width
+     * @param outHeight      the target height of the compressed video or 0 to use default height
+     * @param bitrate        the target bitrate of the compressed video or 0 to user default bitrate
+     * @param emitter        Rx emitter for possibility of compression interrupting.
      * @return The Path of the compressed video file
      */
-    public String compressVideo(String videoFilePath, String destinationDir, int outWidth, int outHeight, int bitrate) throws URISyntaxException {
-        boolean isconverted = MediaController.getInstance().convertVideo( videoFilePath, new File(destinationDir), outWidth, outHeight, bitrate);
-        if (isconverted){
+    public String compressVideo(String videoFilePath, String destinationDir, int outWidth,
+                                int outHeight, int bitrate, SingleEmitter... emitter) throws URISyntaxException {
+        boolean isconverted = MediaController.getInstance().convertVideo(videoFilePath,
+                new File(destinationDir), outWidth, outHeight, bitrate, emitter);
+        if (isconverted) {
             Log.v(LOG_TAG, "Video Conversion Complete");
-        }else{
+        } else {
             Log.v(LOG_TAG, "Video conversion in progress");
         }
 

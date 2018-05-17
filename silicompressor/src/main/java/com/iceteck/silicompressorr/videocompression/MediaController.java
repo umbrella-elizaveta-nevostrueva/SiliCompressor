@@ -26,6 +26,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
+import io.reactivex.SingleEmitter;
+
 @SuppressLint("NewApi")
 public class MediaController {
 
@@ -257,16 +259,19 @@ public void scheduleVideoConvert(String path, File dest) {
 
     /**
      * Perform the actual video compression. Processes the frames and does the magic
+     *
      * @param sourcePath the source uri for the file as per
-     * @param destDir the destination directory where compressed video is eventually saved
-     * @param outWidth the target width of the converted video, 0 is default
-     * @param outHeight the target height of the converted video, 0 is default
+     * @param destDir    the destination directory where compressed video is eventually saved
+     * @param outWidth   the target width of the converted video, 0 is default
+     * @param outHeight  the target height of the converted video, 0 is default
      * @param outBitrate the target bitrate of the converted video, 0 is default
+     * @param emitter    Rx emitter for possibility of compression interrupting.
      * @return
      */
     @TargetApi(16)
-    public boolean  convertVideo(final String sourcePath, File destDir, int outWidth, int outHeight, int outBitrate) {
-        this.path=sourcePath;
+    public boolean convertVideo(final String sourcePath, File destDir, int outWidth, int outHeight,
+                                int outBitrate, SingleEmitter... emitter) {
+        this.path = sourcePath;
 
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         retriever.setDataSource(path);
@@ -472,6 +477,11 @@ public void scheduleVideoConvert(String path, File dest) {
                             }
 
                             while (!outputDone) {
+                                if (emitter != null && emitter.length > 0 && emitter[0].isDisposed()) {
+                                    if (cacheFile.exists())
+                                        cacheFile.delete();
+                                    break;
+                                }
                                 if (!inputDone) {
                                     boolean eof = false;
                                     int index = extractor.getSampleTrackIndex();
@@ -508,6 +518,11 @@ public void scheduleVideoConvert(String path, File dest) {
                                 boolean decoderOutputAvailable = !decoderDone;
                                 boolean encoderOutputAvailable = true;
                                 while (decoderOutputAvailable || encoderOutputAvailable) {
+                                    if (emitter != null && emitter.length > 0 && emitter[0].isDisposed()) {
+                                        if (cacheFile.exists())
+                                            cacheFile.delete();
+                                        break;
+                                    }
                                     int encoderStatus = encoder.dequeueOutputBuffer(info, TIMEOUT_USEC);
                                     if (encoderStatus == MediaCodec.INFO_TRY_AGAIN_LATER) {
                                         encoderOutputAvailable = false;
@@ -686,7 +701,8 @@ public void scheduleVideoConvert(String path, File dest) {
                 }
             } catch (Exception e) {
                 error = true;
-                Log.e("tmessages", e.getMessage());
+                String msg = e.getMessage();
+                Log.e("tmessages", msg != null ? msg : e.toString());
             } finally {
                 if (extractor != null) {
                     extractor.release();
@@ -695,7 +711,8 @@ public void scheduleVideoConvert(String path, File dest) {
                     try {
                         mediaMuxer.finishMovie(false);
                     } catch (Exception e) {
-                        Log.e("tmessages", e.getMessage());
+                        String msg = e.getMessage();
+                        Log.e("tmessages", msg != null ? msg : e.toString());
                     }
                 }
                 Log.e("tmessages", "time = " + (System.currentTimeMillis() - time));
@@ -706,7 +723,7 @@ public void scheduleVideoConvert(String path, File dest) {
         }
         didWriteData(true, error);
 
-        cachedFile=cacheFile;
+        cachedFile = cacheFile;
 
        /* File fdelete = inputFile;
         if (fdelete.exists()) {
@@ -718,9 +735,9 @@ public void scheduleVideoConvert(String path, File dest) {
         }*/
 
         //inputFile.delete();
-        Log.e("ViratPath",path+"");
-        Log.e("ViratPath",cacheFile.getPath()+"");
-        Log.e("ViratPath",inputFile.getPath()+"");
+        Log.e("ViratPath", path + "");
+        Log.e("ViratPath", cacheFile.getPath() + "");
+        Log.e("ViratPath", inputFile.getPath() + "");
 
 
        /* Log.e("ViratPath",path+"");
@@ -746,7 +763,7 @@ public void scheduleVideoConvert(String path, File dest) {
         }
 */
 
-    //    cacheFile.delete();
+        //    cacheFile.delete();
 
        /* try {
            // copyFile(cacheFile,inputFile);
@@ -755,8 +772,8 @@ public void scheduleVideoConvert(String path, File dest) {
         } catch (IOException e) {
             e.printStackTrace();
         }*/
-         // cacheFile.delete();
-       // inputFile.delete();
+        // cacheFile.delete();
+        // inputFile.delete();
         return true;
     }
 
